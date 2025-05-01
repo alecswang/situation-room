@@ -16,6 +16,7 @@ export default function ChatHeader({
   badgeText = 'Journalist',
   role
 }: ChatHeaderProps) {
+  console.log("DEBUG: ", role)
   return (
     <div className="bg-white text-black p-4 flex justify-between items-center">
       <div className="flex items-center gap-2">
