@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '../../config/firebase';
 import RoomCard from './RoomCard';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { Room } from '../../lib/types';
 import Loading from '../ui/Loading';
 import Button from '../ui/Button';
-import Modal from '../ui/Modal'; // You'll need to create this component
+import Modal from '../ui/Modal';
+import { useAuthState } from 'react-firebase-hooks/auth';
 
 interface RoomListProps {
   onSelectRoom: (room: Room) => void;
@@ -17,6 +18,7 @@ interface RoomListProps {
 export default function RoomList({ onSelectRoom }: RoomListProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
+  const [user] = useAuthState(auth);
   const [rooms, loading, error] = useCollection(
     collection(firestore, 'rooms'),
     {
@@ -28,9 +30,15 @@ export default function RoomList({ onSelectRoom }: RoomListProps) {
     e.preventDefault();
     if (!newRoomName.trim()) return;
     
-    const user = auth.currentUser;
     if (!user) return;
     
+    // Check if user is anonymous
+    const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+    if (userDoc.exists() && userDoc.data()?.isAnonymous) {
+      alert('Anonymous users cannot create rooms. Please sign in with Google to create a room.');
+      return;
+    }
+
     try {
       const newRoomRef = await addDoc(collection(firestore, 'rooms'), {
         name: newRoomName,
@@ -57,16 +65,21 @@ export default function RoomList({ onSelectRoom }: RoomListProps) {
   if (loading) return <Loading />;
   if (error) return <div>Error loading rooms</div>;
 
+  // Check if current user is anonymous
+  const isAnonymous = user?.isAnonymous || false;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Chat Rooms</h2>
-        <Button 
-          onClick={() => setIsModalOpen(true)}
-          variant="primary"
-        >
-          Create New Room
-        </Button>
+        {!isAnonymous && (
+          <Button 
+            onClick={() => setIsModalOpen(true)}
+            variant="primary"
+          >
+            Create New Room
+          </Button>
+        )}
       </div>
       
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
